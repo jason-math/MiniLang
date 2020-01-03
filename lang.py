@@ -1,5 +1,5 @@
 from parser import *
-from value_types import *
+from interpreter import *
 
 global_symbol_table = SymbolTable()
 global_symbol_table.set("TRUE", Number(1))
