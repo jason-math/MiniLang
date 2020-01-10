@@ -18,6 +18,13 @@ class StringNode:
         return f'{self.token}'
 
 
+class ListNode:
+    def __init__(self, elements, pos_start, pos_end):
+        self.elements = elements
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
 class VarAccessNode:
     def __init__(self, var_name_token):
         self.var_name_token = var_name_token
@@ -61,11 +68,11 @@ class IfNode:
         self.cases = cases
         self.else_case = else_case
         self.pos_start = self.cases[0][0].pos_start
-        self.pos_end = self.else_case or (self.cases[len(self.cases) - 1][0]).pos_end
+        self.pos_end = (self.else_case or self.cases[len(self.cases) - 1])[0].pos_end
 
 
 class ForNode:
-    def __init__(self, var, start, end, step, body):
+    def __init__(self, var, start, end, step, body, ret_null):
         self.var = var
         self.start = start
         self.end = end
@@ -73,10 +80,11 @@ class ForNode:
         self.body = body
         self.pos_start = self.var.pos_start
         self.pos_end = self.body.pos_end
+        self.ret_null = ret_null
 
 
 class FuncDefNode:
-    def __init__(self, var_name_token, args, body):
+    def __init__(self, var_name_token, args, body, auto_ret):
         self.var_name_token = var_name_token
         self.args = args
         self.body = body
@@ -87,6 +95,7 @@ class FuncDefNode:
         else:
             self.pos_start = self.body.pos_start
         self.pos_end = self.body.pos_end
+        self.auto_ret = auto_ret
 
 
 class CallNode:
@@ -101,8 +110,29 @@ class CallNode:
 
 
 class WhileNode:
-    def __init__(self, condition, body):
+    def __init__(self, condition, body, ret_null):
         self.condition = condition
         self.body = body
         self.pos_start = self.condition.pos_start
         self.pos_end = self.body.pos_end
+        self.ret_null = ret_null
+
+
+class ReturnNode:
+    def __init__(self, ret_node, pos_start, pos_end):
+        self.ret_node = ret_node
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
+class ContinueNode:
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
+class BreakNode:
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+

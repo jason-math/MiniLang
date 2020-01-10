@@ -47,6 +47,8 @@ class RTError(Error):
         context_stack = self.context
 
         while context_stack:
+            if not pos.file_name:
+                pos.file_name = '<std_in>'
             result = f'  File {pos.file_name}, line {str(pos.ln + 1)}, in {context_stack.display_name}\n' + result
             pos = context_stack.parent_entry_pos
             context_stack = self.context
@@ -58,16 +60,49 @@ class RTResult:
     def __init__(self):
         self.val = None
         self.error = None
+        self.fun_ret_val = None
+        self.loop_continue = False
+        self.loop_break = False
+        self.reset()
 
-    def register(self, result):
-        if result.error:
-            self.error = result.error
-        return result.val
+    def reset(self):
+        self.val = None
+        self.error = None
+        self.fun_ret_val = None
+        self.loop_continue = False
+        self.loop_break = False
 
-    def success(self, value):
-        self.val = value
+    def register(self, response):
+        self.error = response.error
+        self.fun_ret_val = response.fun_ret_val
+        self.loop_continue = response.loop_continue
+        self.loop_break = response.loop_break
+        return response.val
+
+    def success(self, val):
+        self.reset()
+        self.val = val
+        return self
+
+    def success_ret(self, val):
+        self.reset()
+        self.fun_ret_val = val
+        return self
+
+    def success_continue(self):
+        self.reset()
+        self.loop_continue = True
+        return self
+
+    def success_break(self):
+        self.reset()
+        self.loop_break = True
         return self
 
     def failure(self, error):
+        self.reset()
         self.error = error
         return self
+
+    def should_ret(self):
+        return self.error or self.fun_ret_val or self.loop_continue or self.loop_break
