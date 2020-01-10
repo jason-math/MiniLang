@@ -131,6 +131,8 @@ class Lexer:
             elif self.curr_char in ';\n':
                 tokens.append(Token(TT_EOL, pos_start=self.pos))
                 self.advance()
+            elif self.curr_char == '#':
+                self.skip_comment()
             elif self.curr_char in DIGITS:
                 tokens.append(self.make_num())
             elif self.curr_char in LETTERS:
@@ -293,6 +295,12 @@ class Lexer:
             token_type = TT_GTE
 
         return Token(token_type, pos_start=pos_start, pos_end=self.pos)
+
+    def skip_comment(self):
+        self.advance()
+        while self.curr_char != '\n':
+            self.advance()
+        self.advance()
 
 
 class Value:
@@ -685,12 +693,12 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(String(str(context.symbol_table.get('value'))))
     execute_print_ret.arg_names = ['value']
 
-    def execute_input(self, context):
+    def execute_input(self):
         text = input()
         return RTResult().success(String(text))
     execute_input.arg_names = []
 
-    def execute_input_int(self, context):
+    def execute_input_int(self):
         while True:
             text = input()
             try:
@@ -701,7 +709,7 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Number(num))
     execute_input_int.arg_names = []
 
-    def execute_clear(self, context):
+    def execute_clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
         return RTResult().success(Number.null)
     execute_clear.arg_names = []
@@ -780,6 +788,42 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Number.null)
     execute_extend.arg_names = ["listA", "listB"]
 
+    def execute_len(self, context):
+        list_ = context.symbol_table.get("list")
+        if not isinstance(list_, List):
+            return RTResult().failure(RTError(self.pos_start,
+                                              self.pos_end,
+                                              "Argument must be type 'List'",
+                                              context))
+        return RTResult().success(Number(len(list_.elements)))
+    execute_len.arg_names = ["list"]
+
+    def execute_run(self, context):
+        file_name = context.symbol_table.get("file_name")
+        if not isinstance(file_name, String):
+            return RTResult().failure(RTError(self.pos_start,
+                                              self.pos_end,
+                                              "Argument must be type 'String'",
+                                              context))
+        file_name = file_name.val
+        try:
+            with open(file_name, 'r') as f:
+                script = f.read()
+        except RuntimeError as e:
+            return RTResult().failure(RTError(self.pos_start,
+                                              self.pos_end,
+                                              f"Failed to load script \"{file_name}\"\n" + str(e),
+                                              context))
+        _, error = run(file_name, script)
+        if error:
+            return RTResult().failure(RTError(self.pos_start,
+                                              self.pos_end,
+                                              f"Failed to finish executing script \"{file_name}\"\n" +
+                                              error.to_string(),
+                                              context))
+        return RTResult().success(Number.null)
+    execute_run.arg_names = ["file_name"]
+
 
 BuiltInFunction.print = BuiltInFunction("print")
 BuiltInFunction.print_ret = BuiltInFunction("print_ret")
@@ -793,6 +837,8 @@ BuiltInFunction.is_fun = BuiltInFunction("is_fun")
 BuiltInFunction.append = BuiltInFunction("append")
 BuiltInFunction.pop = BuiltInFunction("pop")
 BuiltInFunction.extend = BuiltInFunction("extend")
+BuiltInFunction.len = BuiltInFunction("len")
+BuiltInFunction.run = BuiltInFunction("run")
 
 
 class ParseResult:
@@ -1646,10 +1692,12 @@ class Interpreter:
             val = Number.null
         return response.success_ret(val)
 
-    def visit_ContinueNode(self, node, context):
+    # noinspection PyMethodMayBeStatic
+    def visit_ContinueNode(self):
         return RTResult().success_continue()
 
-    def visit_BreakNode(self, node, context):
+    # noinspection PyMethodMayBeStatic
+    def visit_BreakNode(self):
         return RTResult().success_break()
 
 
@@ -1670,6 +1718,8 @@ global_symbol_table.set("IS_FUN", BuiltInFunction.is_fun)
 global_symbol_table.set("APPEND", BuiltInFunction.append)
 global_symbol_table.set("POP", BuiltInFunction.pop)
 global_symbol_table.set("EXTEND", BuiltInFunction.extend)
+global_symbol_table.set("LEN", BuiltInFunction.len)
+global_symbol_table.set("RUN", BuiltInFunction.run)
 
 
 def run(file_name, text):
@@ -1681,17 +1731,17 @@ def run(file_name, text):
 
     # Generate AST
     parser = Parser(tokens)
-    print(parser.__dict__)
+    # print(parser.__dict__)
     ast = parser.parse()
     if ast.error:
         return None, ast.error
-    print(ast.__dict__)
+    # print(ast.__dict__)
 
     # Traverses and computes the AST
     interpreter = Interpreter()
     context = Context('<program>')
     context.symbol_table = global_symbol_table
     result = interpreter.visit(ast.node, context)
-    print(global_symbol_table.__dict__)
+    # print(global_symbol_table.__dict__)
 
     return result.val, result.error
